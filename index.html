@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <title>3D Particle System — HD/4K</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      touch-action: none;
+      user-select: none
+    }
+
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1
+    }
+
+    .input_video {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      top: -9999px;
+      left: -9999px
+    }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      font-size: 14px;
+      color: #aaa;
+      transition: opacity .6s
+    }
+
+    #loader-ring {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255, 255, 255, .1);
+      border-top-color: #6af;
+      border-radius: 50%;
+      animation: spin .8s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none
+    }
+
+    #top-left {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity .3s, background .2s, transform .2s;
+      backdrop-filter: blur(6px);
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, .18);
+      transform: scale(1.1)
+    }
+
+    .icon-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .85
+    }
+
+    .icon-btn.active {
+      background: rgba(120, 200, 255, .3);
+      border-color: rgba(120, 200, 255, .6)
+    }
+
+    /* When UI hidden: hide everything */
+    body.ui-hidden .icon-btn {
+      opacity: 0;
+      pointer-events: none
+    }
+
+    #hint {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 10;
+      background: rgba(0, 0, 0, .6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 10px;
+      padding: 10px 13px;
+      font-size: 11px;
+      line-height: 1.8;
+      max-width: 180px;
+      opacity: .8;
+      transition: opacity .4s, transform .4s
+    }
+
+    #hint b {
+      color: #aef
+    }
+
+    body.ui-hidden #hint {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(20px)
+    }
+
+    #ui {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      background: linear-gradient(0deg, rgba(0, 0, 0, .94) 0%, transparent 100%);
+      padding: 10px 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      transition: opacity .45s, transform .45s
+    }
+
+    body.ui-hidden #ui {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(36px)
+    }
+
+    #gesture-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      opacity: .85
+    }
+
+    #status-dot {
+      width: 8px;
+      height: 8px;
+      background: #333;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background .3s
+    }
+
+    #status-dot.on {
+      background: #0f0;
+      box-shadow: 0 0 5px #0f0
+    }
+
+    #gesture-label {
+      font-weight: 600;
+      color: #aef;
+      letter-spacing: .4px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    #expansion-bar-wrap {
+      height: 3px;
+      background: rgba(255, 255, 255, .1);
+      border-radius: 2px;
+      width: 80px;
+      flex-shrink: 0
+    }
+
+    #expansion-bar {
+      height: 3px;
+      background: linear-gradient(90deg, #6ef, #f6e);
+      border-radius: 2px;
+      width: 0%;
+      transition: width .15s
+    }
+
+    #templates {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none
+    }
+
+    #templates::-webkit-scrollbar {
+      display: none
+    }
+
+    .tpl-btn {
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid rgba(255, 255, 255, .15);
+      color: #fff;
+      border-radius: 18px;
+      padding: 5px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .2s;
+      -webkit-tap-highlight-color: transparent
+    }
+
+    .tpl-btn.active {
+      background: rgba(120, 180, 255, .3);
+      border-color: rgba(120, 180, 255, .65);
+      box-shadow: 0 0 8px rgba(120, 180, 255, .35)
+    }
+
+    #bottom-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    #bottom-row label {
+      font-size: 11px;
+      opacity: .55;
+      white-space: nowrap
+    }
+
+    .clr-btn {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform .15s, border-color .15s;
+      -webkit-tap-highlight-color: transparent
+    }
+
+    .clr-btn.active {
+      border-color: #fff;
+      transform: scale(1.3)
+    }
+
+    #color-picker {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      background: none;
+      outline: none;
+      flex-shrink: 0
+    }
+
+    #sliders-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      opacity: .7
+    }
+
+    .slider-wrap input[type=range] {
+      width: 70px;
+      accent-color: #6af;
+      cursor: pointer
+    }
+
+    #audio-bar {
+      height: 2px;
+      background: rgba(255, 255, 255, .08);
+      border-radius: 1px
+    }
+
+    #audio-level {
+      height: 2px;
+      background: linear-gradient(90deg, #6f6, #ff6);
+      border-radius: 1px;
+      width: 0%;
+      transition: width .08s
+    }
+
+    /* ── TOAST: hidden entirely when UI is off ── */
+    #toast {
+      position: fixed;
+      bottom: 160px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      background: rgba(0, 0, 0, .75);
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, .85);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .3s;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1
+    }
+
+    /* Force-hide toast when UI is hidden — no notifications visible in clean mode */
+    body.ui-hidden #toast {
+      opacity: 0 !important;
+      pointer-events: none
+    }
+
+    #text-input-wrap {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 50;
+      background: rgba(10, 10, 20, .92);
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(12px);
+      min-width: 260px
+    }
+
+    #text-input-wrap h3 {
+      font-size: 14px;
+      opacity: .8;
+      font-weight: 600
+    }
+
+    #text-shape-input {
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 18px;
+      padding: 8px 12px;
+      outline: none;
+      letter-spacing: 2px;
+      text-align: center;
+      width: 100%
+    }
+
+    #text-shape-input::placeholder {
+      opacity: .3;
+      font-size: 14px;
+      letter-spacing: 0
+    }
+
+    .text-btns {
+      display: flex;
+      gap: 8px
+    }
+
+    .text-btns button {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600
+    }
+
+    #text-apply-btn {
+      background: rgba(100, 180, 255, .3);
+      color: #aef;
+      border: 1px solid rgba(100, 180, 255, .4)
+    }
+
+    #text-cancel-btn {
+      background: rgba(255, 255, 255, .07);
+      color: #aaa;
+      border: 1px solid rgba(255, 255, 255, .1)
+    }
+
+    #preset-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 50;
+      background: rgba(10, 10, 20, .92);
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      backdrop-filter: blur(12px);
+      min-width: 280px;
+      max-height: 80vh;
+      overflow-y: auto
+    }
+
+    #preset-panel h3 {
+      font-size: 14px;
+      opacity: .8;
+      font-weight: 600
+    }
+
+    .preset-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, .05);
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, .08);
+      transition: background .2s
+    }
+
+    .preset-item:hover {
+      background: rgba(255, 255, 255, .1)
+    }
+
+    .preset-name {
+      flex: 1;
+      font-size: 13px
+    }
+
+    .preset-del {
+      font-size: 11px;
+      opacity: .4;
+      padding: 2px 6px;
+      background: rgba(255, 80, 80, .15);
+      border-radius: 4px;
+      border: none;
+      color: #f88;
+      cursor: pointer
+    }
+
+    #preset-save-row {
+      display: flex;
+      gap: 8px
+    }
+
+    #preset-name-input {
+      flex: 1;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      padding: 6px 10px;
+      outline: none
+    }
+
+    #preset-save-btn {
+      padding: 6px 14px;
+      background: rgba(100, 200, 100, .2);
+      color: #afa;
+      border: 1px solid rgba(100, 200, 100, .3);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px
+    }
+
+    #preset-close-btn {
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, .07);
+      color: #aaa;
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 49;
+      background: rgba(0, 0, 0, .5);
+      display: none;
+      backdrop-filter: blur(2px)
+    }
+
+    #quality-badge {
+      position: fixed;
+      top: 12px;
+      left: 58px;
+      z-index: 21;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(120, 200, 255, .2);
+      border: 1px solid rgba(120, 200, 255, .4);
+      color: #aef;
+      pointer-events: none;
+      transition: opacity .4s
+    }
+
+    body.ui-hidden #quality-badge {
+      opacity: 0
+    }
+  </style>
+</head>
+
+<body>
+  <video class="input_video" playsinline autoplay muted></video>
+  <div id="canvas-container"></div>
+  <div id="loader">
+    <div id="loader-ring"></div><span>Loading models…</span>
+  </div>
+
+  <div id="quality-badge">HD</div>
+
+  <div id="top-left">
+    <button class="icon-btn active" id="quality-btn" title="HD / Performance toggle">
+      <svg viewBox="0 0 24 24">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+        <path d="M7 8h2v5M7 10.5h2M14 8v5M14 8c1.5 0 2.5.8 2.5 2s-1 2-2.5 2" />
+      </svg>
+    </button>
+    <button class="icon-btn active" id="bloom-btn" title="Toggle Bloom Glow">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
+    </button>
+    <button class="icon-btn" id="fullscreen-btn" title="Fullscreen">
+      <svg viewBox="0 0 24 24">
+        <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+      </svg>
+    </button>
+    <button class="icon-btn" id="screenshot-btn" title="Screenshot">
+      <svg viewBox="0 0 24 24">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+    </button>
+    <button class="icon-btn" id="audio-btn" title="Audio Reactive">
+      <svg viewBox="0 0 24 24">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+    </button>
+    <button class="icon-btn" id="presets-btn" title="Presets">
+      <svg viewBox="0 0 24 24">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+      </svg>
+    </button>
+    <button class="icon-btn" id="gyro-btn" title="Gyroscope">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4l3 3" />
+      </svg>
+    </button>
+  </div>
+
+  <div id="hint">
+    <b>✊ Fist</b> → contract<br>
+    <b>🖐 Open</b> → expand<br>
+    <b>☝ 1 finger</b> → next shape<br>
+    <b>✌ 2 fingers</b> → prev shape<br>
+    <b>🤟 3 fingers</b> → trails<br>
+    <b>🤙 Pinch</b> → burst!<br>
+    <b>✌ hold 2s</b> → screenshot<br>
+    <b>2× tap</b> → hide UI
+  </div>
+
+  <div id="ui">
+    <div id="gesture-info">
+      <div id="status-dot"></div>
+      <span id="gesture-label">No hand detected</span>
+      <div id="expansion-bar-wrap">
+        <div id="expansion-bar"></div>
+      </div>
+    </div>
+    <div id="audio-bar">
+      <div id="audio-level"></div>
+    </div>
+    <div id="templates">
+      <button class="tpl-btn active" data-shape="sphere">🌐 Sphere</button>
+      <button class="tpl-btn" data-shape="heart">❤️ Heart</button>
+      <button class="tpl-btn" data-shape="flower">🌸 Flower</button>
+      <button class="tpl-btn" data-shape="saturn">🪐 Saturn</button>
+      <button class="tpl-btn" data-shape="fireworks">🎆 Fireworks</button>
+      <button class="tpl-btn" data-shape="dna">🧬 DNA</button>
+      <button class="tpl-btn" data-shape="torus">💍 Torus</button>
+      <button class="tpl-btn" data-shape="galaxy">🌌 Galaxy</button>
+      <button class="tpl-btn" data-shape="cube">🎲 Cube</button>
+      <button class="tpl-btn" data-shape="star">⭐ Star</button>
+      <button class="tpl-btn" data-shape="butterfly">🦋 Butterfly</button>
+      <button class="tpl-btn" data-shape="wave">🌊 Wave</button>
+      <button class="tpl-btn" data-shape="mobius">♾️ Möbius</button>
+      <button class="tpl-btn" data-shape="text">✏️ Text</button>
+    </div>
+    <div id="bottom-row">
+      <label>Color:</label>
+      <div class="clr-btn active" style="background:#6af" data-h="0.58"></div>
+      <div class="clr-btn" style="background:#f66" data-h="0.0"></div>
+      <div class="clr-btn" style="background:#6f6" data-h="0.33"></div>
+      <div class="clr-btn" style="background:#fc6" data-h="0.12"></div>
+      <div class="clr-btn" style="background:#c6f" data-h="0.75"></div>
+      <div class="clr-btn" style="background:#fff" data-h="-1"></div>
+      <input type="color" id="color-picker" value="#66aaff">
+    </div>
+    <div id="sliders-row">
+      <div class="slider-wrap"><label>Speed</label><input type="range" id="speed-slider" min="1" max="20" value="6">
+      </div>
+      <div class="slider-wrap"><label>Count</label><input type="range" id="count-slider" min="1000" max="20000"
+          step="1000" value="8000"></div>
+      <div class="slider-wrap"><label>Size</label><input type="range" id="size-slider" min="1" max="30" value="5"></div>
+      <div class="slider-wrap"><label>Bloom</label><input type="range" id="bloom-slider" min="0" max="30" value="14">
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay"></div>
+  <div id="text-input-wrap">
+    <h3>✏️ Particle Text</h3>
+    <input type="text" id="text-shape-input" maxlength="8" placeholder="Type up to 8 chars…">
+    <div class="text-btns"><button id="text-apply-btn">Apply</button><button id="text-cancel-btn">Cancel</button></div>
+  </div>
+  <div id="preset-panel">
+    <h3>🔖 Presets</h3>
+    <div id="preset-list"></div>
+    <div id="preset-save-row">
+      <input type="text" id="preset-name-input" placeholder="Preset name…">
+      <button id="preset-save-btn">Save</button>
+    </div>
+    <button id="preset-close-btn">Close</button>
+  </div>
+  <div id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <script>
+    // ═══════════════════════════════════════════
+    //  STATE
+    // ═══════════════════════════════════════════
+    let PARTICLE_COUNT = 8000, LERP_SPEED = 0.06;
+    const ROT_LERP = 0.07, NOISE_AMP = 0.18;
+    const state = {
+      shape: 'sphere', hue: 0.58, expansion: 1.0,
+      handActive: false, handX: 0.5, handY: 0.5,
+      rawX: 0.5, rawY: 0.5, // For smoothing
+      tension: 0, lastFingers: -1, holdFrames: 0,
+      gestureDebounce: 0, stableFingers: -1,
+      burst: false, burstTime: 0,
+      gyroActive: false, audioActive: false, audioLevel: 0,
+      trailsActive: false, textString: 'Hi',
+    };
+    const SHAPES = ['sphere', 'heart', 'flower', 'saturn', 'fireworks', 'dna', 'torus', 'galaxy', 'cube', 'star', 'butterfly', 'wave', 'mobius', 'text'];
+    let shapeIdx = 0;
+
+    // UI visibility state — declared early so showToast can use it
+    let uiVisible = true;
+
+    // ═══════════════════════════════════════════
+    //  RENDERER
+    // ═══════════════════════════════════════════
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000000, 0.0012);
+    const camera3d = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 2000);
+    camera3d.position.z = 85;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    // ═══════════════════════════════════════════
+    //  BUFFERS
+    // ═══════════════════════════════════════════
+    let pos = new Float32Array(PARTICLE_COUNT * 3), col = new Float32Array(PARTICLE_COUNT * 3);
+    let tPos = new Float32Array(PARTICLE_COUNT * 3), tCol = new Float32Array(PARTICLE_COUNT * 3);
+    let vel = new Float32Array(PARTICLE_COUNT * 3), prevPos = new Float32Array(PARTICLE_COUNT * 3);
+    for (let i = 0; i < PARTICLE_COUNT * 3; i++) { pos[i] = (Math.random() - .5) * 200; col[i] = 1; }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+    function makeHDSprite() {
+      const sz = 256, c = document.createElement('canvas'); c.width = c.height = sz;
+      const cx = c.getContext('2d'), h = sz / 2;
+      const g = cx.createRadialGradient(h, h, 0, h, h, h);
+      g.addColorStop(0, 'rgba(255,255,255,1.0)'); g.addColorStop(0.12, 'rgba(255,255,255,0.97)');
+      g.addColorStop(0.3, 'rgba(255,255,255,0.72)'); g.addColorStop(0.55, 'rgba(255,255,255,0.25)');
+      g.addColorStop(0.78, 'rgba(255,255,255,0.05)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      cx.fillStyle = g; cx.fillRect(0, 0, sz, sz);
+      const g2 = cx.createRadialGradient(h, h, 0, h, h, h * .18);
+      g2.addColorStop(0, 'rgba(255,255,255,0.6)'); g2.addColorStop(1, 'rgba(255,255,255,0)');
+      cx.fillStyle = g2; cx.fillRect(0, 0, sz, sz);
+      const tex = new THREE.CanvasTexture(c);
+      tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return tex;
+    }
+    const mat = new THREE.PointsMaterial({ size: 0.55, map: makeHDSprite(), vertexColors: true, transparent: true, opacity: 0.92, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+
+    const trailGeo = new THREE.BufferGeometry();
+    const trailBuf = new Float32Array(PARTICLE_COUNT * 6);
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(trailBuf, 3));
+    const trailLines = new THREE.LineSegments(trailGeo, new THREE.LineBasicMaterial({ color: 0x3366aa, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
+    trailLines.visible = false; scene.add(trailLines);
+
+    // ═══════════════════════════════════════════
+    //  BLOOM
+    // ═══════════════════════════════════════════
+    let composer = null, bloomPass = null, bloomEnabled = true;
+    function initBloom() {
+      if (typeof THREE.EffectComposer === 'undefined') return;
+      composer = new THREE.EffectComposer(renderer);
+      composer.addPass(new THREE.RenderPass(scene, camera3d));
+      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth * window.devicePixelRatio, innerHeight * window.devicePixelRatio), 1.4, 0.55, 0.08);
+      composer.addPass(bloomPass);
+      updateComposerSize();
+    }
+    window.addEventListener('load', () => setTimeout(initBloom, 600));
+    function updateComposerSize() {
+      if (!composer) return;
+      const dpr = hdMode ? window.devicePixelRatio : 1;
+      composer.setSize(innerWidth * dpr, innerHeight * dpr);
+      if (bloomPass) bloomPass.resolution.set(innerWidth * dpr, innerHeight * dpr);
+    }
+
+    // ═══════════════════════════════════════════
+    //  HD QUALITY
+    // ═══════════════════════════════════════════
+    let hdMode = true;
+    function setQuality(hd) {
+      hdMode = hd;
+      const dpr = hd ? window.devicePixelRatio : 1;
+      renderer.setPixelRatio(dpr); renderer.setSize(innerWidth, innerHeight);
+      updateComposerSize();
+      const badge = document.getElementById('quality-badge');
+      badge.textContent = hd ? ('HD ' + (window.devicePixelRatio > 1 ? Math.round(window.devicePixelRatio * 100) / 100 + '×' : '')) : 'PERF';
+      badge.style.borderColor = hd ? 'rgba(120,200,255,.4)' : 'rgba(255,200,80,.4)';
+      badge.style.color = hd ? '#aef' : '#fc8';
+      document.getElementById('quality-btn').classList.toggle('active', hd);
+      showToast(hd ? '✨ HD — DPR ' + dpr.toFixed(1) + '×' : '⚡ Performance mode');
+    }
+    document.getElementById('quality-btn').addEventListener('click', () => setQuality(!hdMode));
+    document.getElementById('bloom-btn').addEventListener('click', () => {
+      bloomEnabled = !bloomEnabled;
+      document.getElementById('bloom-btn').classList.toggle('active', bloomEnabled);
+      if (bloomPass) bloomPass.strength = bloomEnabled ? parseFloat(document.getElementById('bloom-slider').value) / 10 : 0;
+      showToast(bloomEnabled ? '✨ Bloom ON' : '🌑 Bloom OFF');
+    });
+    document.getElementById('bloom-slider').addEventListener('input', e => { if (bloomPass && bloomEnabled) bloomPass.strength = parseInt(e.target.value) / 10; });
+
+    // ═══════════════════════════════════════════
+    //  COLOUR
+    // ═══════════════════════════════════════════
+    function hsl2rgb(h, s, l) {
+      const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h * 6) % 2 - 1)), m = l - c / 2;
+      let r, g, b;
+      if (h < 1 / 6) { r = c; g = x; b = 0 } else if (h < 2 / 6) { r = x; g = c; b = 0 } else if (h < 3 / 6) { r = 0; g = c; b = x }
+      else if (h < 4 / 6) { r = 0; g = x; b = c } else if (h < 5 / 6) { r = x; g = 0; b = c } else { r = c; g = 0; b = x }
+      return [r + m, g + m, b + m];
+    }
+
+    // ═══════════════════════════════════════════
+    //  SHAPES
+    // ═══════════════════════════════════════════
+    function shapeSphere(i, n, e) { const t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1), r = 28 * e; return [r * Math.sin(p) * Math.cos(t), r * Math.sin(p) * Math.sin(t), r * Math.cos(p)]; }
+    function shapeHeart(i, n, e) { const t = (i / n) * Math.PI * 2, s = 3.5 * e; return [16 * Math.pow(Math.sin(t), 3) * s, (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * s, (Math.random() - .5) * 4 * e]; }
+    function shapeFlower(i, n, e) { const t = (i / n) * Math.PI * 2, r = (1 + .5 * Math.cos(6 * t)) * 22 * e; return [r * Math.cos(t), r * Math.sin(t), Math.sin(3 * t) * 6 * e]; }
+    function shapeSaturn(i, n, e) { if (i < n * .5) { const t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1), r = 18 * e; return [r * Math.sin(p) * Math.cos(t), r * Math.sin(p) * Math.sin(t) * .9, r * Math.cos(p)]; } const t = Math.random() * Math.PI * 2, r = (28 + Math.random() * 18) * e; return [r * Math.cos(t), (Math.random() - .5) * 2 * e, r * Math.sin(t)]; }
+    function shapeFireworks(i, n, e) { const b = Math.floor(i / (n / 12)), s = b * 137.5, d = new THREE.Vector3(Math.cos(s) * Math.sin(s * .7), Math.sin(s * 1.3), Math.cos(s * .9)).normalize(), bx = Math.cos(b) * 18 * e, by = (Math.sin(b * .7) * 14 - 5) * e, bz = Math.cos(b * 1.1) * 12 * e, r = Math.random() * 14 * e; return [bx + d.x * r, by + d.y * r, bz + d.z * r]; }
+    function shapeDNA(i, n, e) { const t = (i / n) * Math.PI * 8, off = i % 2 ? Math.PI : 0, rad = 12 * e; if (i % 40 < 12) { const rt = Math.floor(i / 40) * (Math.PI * 8 / Math.floor(n / 40)); return [(Math.random() - .5) * 24 * e, (rt / (Math.PI * 8)) * 80 * e - 40 * e, (Math.random() - .5) * 4 * e]; } return [rad * Math.cos(t + off), (t / (Math.PI * 8)) * 80 * e - 40 * e, rad * Math.sin(t + off)]; }
+    function shapeTorus(i, n, e) { const R = 26 * e, r = 9 * e, u = (i / n) * Math.PI * 2, v = Math.random() * Math.PI * 2; return [(R + r * Math.cos(v)) * Math.cos(u), (R + r * Math.cos(v)) * Math.sin(u), r * Math.sin(v)]; }
+    function shapeGalaxy(i, n, e) { const a = 4, arm = i % a, t = (i / n) * Math.PI * 6, r = (i / n) * 50 * e, sp = r * .04, off = (arm / a) * Math.PI * 2; return [r * Math.cos(t + sp + off) + (Math.random() - .5) * 4 * e, (Math.random() - .5) * 3 * e, r * Math.sin(t + sp + off) + (Math.random() - .5) * 4 * e]; }
+    function shapeCube(i, n, e) { const s = 32 * e, f = i % 6, u = (Math.random() - .5) * s, v = (Math.random() - .5) * s, h = s / 2; if (f === 0) return [u, v, h]; if (f === 1) return [u, v, -h]; if (f === 2) return [h, u, v]; if (f === 3) return [-h, u, v]; if (f === 4) return [u, h, v]; return [u, -h, v]; }
+    function shapeStar(i, n, e) { const sp = 5, t = (i / n) * Math.PI * 2 * sp, ev = Math.floor((i / n) * sp * 2) % 2 === 0, r = (ev ? 26 : 10) * e; return [r * Math.cos(t), r * Math.sin(t), Math.sin(t * 2) * 7 * e + (Math.random() - .5) * 4 * e]; }
+    function shapeButterfly(i, n, e) { const t = (i / n) * Math.PI * 4 - Math.PI * 2, r = e * 12 * (Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.pow(Math.sin(t / 12), 5)); return [r * Math.sin(t) * 8, (r * Math.cos(t) - 10) * e * 2.5, (Math.random() - .5) * 8 * e]; }
+    function shapeWave(i, n, e) { const c = Math.ceil(Math.sqrt(n * 2)), x = (i % c - c / 2) * 2.5 * e, z = (Math.floor(i / c) - c / 4) * 2.5 * e, y = Math.sin(x * .15) * Math.cos(z * .15) * 14 * e; return [x, y, z]; }
+    function shapeMobius(i, n, e) { const t = (i / n) * Math.PI * 2, s = (Math.random() - .5) * 10 * e, r = 22 * e; return [(r + s * Math.cos(t / 2)) * Math.cos(t), (r + s * Math.cos(t / 2)) * Math.sin(t), s * Math.sin(t / 2)]; }
+    let textPoints = null;
+    function buildTextPoints(str) { const c = document.createElement('canvas'); c.width = 512; c.height = 128; const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 512, 128); ctx.fillStyle = '#fff'; ctx.font = 'bold 96px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(str || 'Hi', 256, 64); const d = ctx.getImageData(0, 0, 512, 128).data, pts = []; for (let y = 0; y < 128; y += 2)for (let x = 0; x < 512; x += 2)if (d[(y * 512 + x) * 4] > 128) pts.push([(x - 256) / 10, (64 - y) / 10, 0]); return pts; }
+    function shapeText(i, n, e) { if (!textPoints || !textPoints.length) return shapeSphere(i, n, e); const p = textPoints[i % textPoints.length]; return [p[0] * e * 2, p[1] * e * 2, (Math.random() - .5) * 3 * e]; }
+    const shapeFns = { sphere: shapeSphere, heart: shapeHeart, flower: shapeFlower, saturn: shapeSaturn, fireworks: shapeFireworks, dna: shapeDNA, torus: shapeTorus, galaxy: shapeGalaxy, cube: shapeCube, star: shapeStar, butterfly: shapeButterfly, wave: shapeWave, mobius: shapeMobius, text: shapeText };
+
+    function rebuildTargets(exp = state.expansion) {
+      const fn = shapeFns[state.shape] || shapeFns.sphere, n = PARTICLE_COUNT;
+      for (let i = 0; i < n; i++) {
+        const i3 = i * 3, pt = fn(i, n, exp);
+        tPos[i3] = pt[0]; tPos[i3 + 1] = pt[1]; tPos[i3 + 2] = pt[2];
+        let h = state.hue < 0 ? (i / n) : state.hue;
+        const lb = 0.6 + state.audioLevel * .3 + Math.random() * .2;
+        const [r, g, b] = hsl2rgb(h, 1.0, Math.min(lb, 1));
+        tCol[i3] = r; tCol[i3 + 1] = g; tCol[i3 + 2] = b;
+      }
+    }
+    rebuildTargets();
+
+    function triggerBurst() {
+      for (let i = 0; i < PARTICLE_COUNT * 3; i++)vel[i] = (Math.random() - .5) * 7;
+      state.burst = true; state.burstTime = 0;
+      if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+      // Only show toast if UI is visible
+      showToast('💥 Burst!');
+    }
+
+    // ═══════════════════════════════════════════
+    //  AUDIO
+    // ═══════════════════════════════════════════
+    let analyser = null, audioData = null;
+    async function initAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = ctx.createAnalyser(); analyser.fftSize = 256;
+        ctx.createMediaStreamSource(stream).connect(analyser);
+        audioData = new Uint8Array(analyser.frequencyBinCount);
+        state.audioActive = true; document.getElementById('audio-btn').classList.add('active'); showToast('🎵 Audio reactive ON');
+      } catch (e) { showToast('⚠ Mic denied'); }
+    }
+    function updateAudio() {
+      if (!analyser || !state.audioActive) return;
+      analyser.getByteFrequencyData(audioData);
+      let sum = 0; for (let i = 0; i < audioData.length; i++)sum += audioData[i];
+      state.audioLevel += (sum / audioData.length / 255 - state.audioLevel) * .2;
+      document.getElementById('audio-level').style.width = Math.round(state.audioLevel * 100) + '%';
+      let bass = 0; for (let i = 0; i < 8; i++)bass += audioData[i]; bass /= 8 * 255;
+      if (bass > 0.85 && state.burstTime > 30) triggerBurst();
+    }
+
+    // ═══════════════════════════════════════════
+    //  GYRO
+    // ═══════════════════════════════════════════
+    let gyroX = 0, gyroY = 0;
+    function initGyro() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(p => { if (p === 'granted') attachGyro(); else showToast('⚠ Gyro denied'); }).catch(() => showToast('⚠ Gyro denied'));
+      } else attachGyro();
+    }
+    function attachGyro() { window.addEventListener('deviceorientation', e => { if (!state.gyroActive) return; gyroX = (e.beta || 0) * Math.PI / 180 * .4; gyroY = (e.gamma || 0) * Math.PI / 180 * .4; }); state.gyroActive = true; document.getElementById('gyro-btn').classList.add('active'); showToast('📱 Gyroscope ON'); }
+
+    // ═══════════════════════════════════════════
+    //  ANIMATION
+    // ═══════════════════════════════════════════
+    const clock = new THREE.Clock();
+    let rotX = 0, rotY = 0, rotZ = 0, lastExp = 1.0;
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime(), posA = geo.attributes.position, colA = geo.attributes.color, exp = state.expansion;
+      updateAudio();
+      if (Math.abs(exp - lastExp) > 0.02 || state.audioLevel > 0.05) { rebuildTargets(exp); lastExp = exp; }
+      let tRX = 0, tRY = t * 0.07, tRZ = 0;
+      if (state.gyroActive) { tRX = gyroX; tRY = gyroY; }
+      else if (state.handActive) { tRX = (state.handY - .5) * 3; tRY = (state.handX - .5) * 3; }
+      if (state.audioActive) tRZ += state.audioLevel * 2;
+      rotX += (tRX - rotX) * ROT_LERP; rotY += (tRY - rotY) * ROT_LERP; rotZ += (tRZ - rotZ) * .04;
+      particles.rotation.x = rotX; particles.rotation.y = rotY; particles.rotation.z = rotZ;
+      trailLines.rotation.copy(particles.rotation);
+      if (state.burst) { state.burstTime++; if (state.burstTime > 90) state.burst = false; }
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3, noise = Math.sin(t * 1.5 + i * .02) * NOISE_AMP * (1 + state.audioLevel * 3);
+        prevPos[i3] = posA.array[i3]; prevPos[i3 + 1] = posA.array[i3 + 1]; prevPos[i3 + 2] = posA.array[i3 + 2];
+        if (state.burst && state.burstTime < 90) { const d = 1 - state.burstTime / 90; posA.array[i3] += vel[i3] * d; posA.array[i3 + 1] += vel[i3 + 1] * d; posA.array[i3 + 2] += vel[i3 + 2] * d; }
+        else { posA.array[i3] += (tPos[i3] + noise - posA.array[i3]) * LERP_SPEED; posA.array[i3 + 1] += (tPos[i3 + 1] + noise - posA.array[i3 + 1]) * LERP_SPEED; posA.array[i3 + 2] += (tPos[i3 + 2] + noise - posA.array[i3 + 2]) * LERP_SPEED; }
+        colA.array[i3] += (tCol[i3] - colA.array[i3]) * .05; colA.array[i3 + 1] += (tCol[i3 + 1] - colA.array[i3 + 1]) * .05; colA.array[i3 + 2] += (tCol[i3 + 2] - colA.array[i3 + 2]) * .05;
+        if (state.trailsActive) { const b = i3 * 2; trailBuf[b] = prevPos[i3]; trailBuf[b + 1] = prevPos[i3 + 1]; trailBuf[b + 2] = prevPos[i3 + 2]; trailBuf[b + 3] = posA.array[i3]; trailBuf[b + 4] = posA.array[i3 + 1]; trailBuf[b + 5] = posA.array[i3 + 2]; }
+      }
+      posA.needsUpdate = true; colA.needsUpdate = true;
+      if (state.trailsActive) trailGeo.attributes.position.needsUpdate = true;
+      if (composer && bloomEnabled) composer.render(); else renderer.render(scene, camera3d);
+    }
+    animate();
+
+    // ═══════════════════════════════════════════
+    //  MEDIAPIPE
+    // ═══════════════════════════════════════════
+    function countFingers(lm) {
+      let c = 0;
+      const wrist = lm[0];
+      const getD = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y, (p1.z || 0) - (p2.z || 0));
+
+      // Thumb: Tip should be significantly further from wrist than the IP joint 
+      const dThumbTip = getD(lm[4], wrist), dThumbIP = getD(lm[3], wrist);
+      if (dThumbTip > dThumbIP * 1.38) c++;
+
+      // Fingers (8,12,16,20): Tip distance from wrist vs PIP distance from wrist
+      [8, 12, 16, 20].forEach(tipIdx => {
+        const dTip = getD(lm[tipIdx], wrist);
+        const dPip = getD(lm[tipIdx - 2], wrist);
+        if (dTip > dPip * 1.2) c++;
+      });
+      return c;
+    }
+    function isPinch(lm) {
+      const d = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y, (lm[4].z || 0) - (lm[8].z || 0));
+      return d < 0.045;
+    }
+    function onHandsResults(results) {
+      const dot = document.getElementById('status-dot'), label = document.getElementById('gesture-label'), bar = document.getElementById('expansion-bar');
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const lm = results.multiHandLandmarks[0];
+        dot.classList.add('on'); state.handActive = true;
+
+        // Smooth tracking (EMA)
+        const tx = 1 - lm[9].x, ty = lm[9].y;
+        state.handX += (tx - state.handX) * 0.25;
+        state.handY += (ty - state.handY) * 0.25;
+
+        const d = Math.hypot(lm[12].x - lm[0].x, lm[12].y - lm[0].y, (lm[12].z || 0) - (lm[0].z || 0));
+        const ten = Math.min(Math.max((d - .1) * 3, 0), 1);
+        state.tension += (ten - state.tension) * .15; state.expansion = 0.4 + state.tension * 1.6;
+        bar.style.width = Math.round(state.tension * 100) + '%';
+
+        const fingers = countFingers(lm), pinch = isPinch(lm);
+
+        // Gesture Debounce/Stability
+        if (pinch) {
+          if (state.stableFingers !== 99) {
+            state.gestureDebounce++;
+            if (state.gestureDebounce > 4) { triggerBurst(); state.stableFingers = 99; state.gestureDebounce = 0; }
+          }
+        } else {
+          if (fingers === state.lastFingers) {
+            state.gestureDebounce++;
+            if (state.gestureDebounce > 6 && state.stableFingers !== fingers) {
+              const oldF = state.stableFingers;
+              state.stableFingers = fingers;
+              // Trigger actions only on stable state change
+              if (fingers === 1) { shapeIdx = (shapeIdx + 1) % SHAPES.length; if (SHAPES[shapeIdx] !== 'text') setShape(SHAPES[shapeIdx]); showToast('☝ Shape: ' + SHAPES[shapeIdx]); }
+              else if (fingers === 2) { shapeIdx = (shapeIdx - 1 + SHAPES.length) % SHAPES.length; if (SHAPES[shapeIdx] !== 'text') setShape(SHAPES[shapeIdx]); showToast('✌ Shape: ' + SHAPES[shapeIdx]); }
+              else if (fingers === 3) { state.trailsActive = !state.trailsActive; trailLines.visible = state.trailsActive; showToast('🤟 Trails ' + (state.trailsActive ? 'ON' : 'OFF')); }
+            }
+          } else {
+            state.lastFingers = fingers;
+            state.gestureDebounce = 0;
+          }
+
+          if (fingers === 2) state.holdFrames++; else state.holdFrames = 0;
+          if (state.holdFrames === 100) takeScreenshot();
+        }
+
+        // Update label only when UI is visible
+        if (uiVisible) {
+          if (pinch) label.textContent = '🤙 Bursting!';
+          else label.textContent = state.stableFingers >= 0 ? state.stableFingers + ' finger' + (state.stableFingers !== 1 ? 's' : '') : 'Tracking...';
+        }
+      } else {
+        state.handActive = false; dot.classList.remove('on');
+        state.stableFingers = -1; state.gestureDebounce = 0;
+        label.textContent = 'No hand detected'; bar.style.width = '0%';
+      }
+    }
+    async function initMediaPipe() {
+      const video = document.querySelector('.input_video');
+      const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+      hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+      hands.onResults(onHandsResults);
+      const cam = new Camera(video, { onFrame: async () => { await hands.send({ image: video }); }, width: 320, height: 240 });
+      try { await cam.start(); document.getElementById('loader').classList.add('hidden'); }
+      catch (e) { document.getElementById('loader').innerHTML = '<span style="color:#f66">⚠ Camera denied</span>'; }
+    }
+    initMediaPipe();
+
+    // ═══════════════════════════════════════════
+    //  RESIZE BUFFERS
+    // ═══════════════════════════════════════════
+    function resizeBuffers(n) {
+      PARTICLE_COUNT = n;
+      pos = new Float32Array(n * 3); col = new Float32Array(n * 3); tPos = new Float32Array(n * 3);
+      tCol = new Float32Array(n * 3); vel = new Float32Array(n * 3); prevPos = new Float32Array(n * 3);
+      for (let i = 0; i < n * 3; i++) { pos[i] = (Math.random() - .5) * 200; col[i] = 1; }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
+      rebuildTargets();
+    }
+
+    // ═══════════════════════════════════════════
+    //  SCREENSHOT
+    // ═══════════════════════════════════════════
+    function takeScreenshot() {
+      renderer.render(scene, camera3d);
+      const a = document.createElement('a'); a.href = renderer.domElement.toDataURL('image/png'); a.download = 'particles_' + Date.now() + '.png'; a.click();
+      if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+      showToast('📸 Saved!');
+    }
+
+    // ═══════════════════════════════════════════
+    //  PRESETS
+    // ═══════════════════════════════════════════
+    function getPresets() { return JSON.parse(localStorage.getItem('pp_presets') || '[]'); }
+    function savePresets(p) { localStorage.setItem('pp_presets', JSON.stringify(p)); }
+    function renderPresetList() {
+      const list = document.getElementById('preset-list'); list.innerHTML = '';
+      getPresets().forEach((p, idx) => {
+        const div = document.createElement('div'); div.className = 'preset-item';
+        div.innerHTML = `<span class="preset-name">🔖 ${p.name}</span><button class="preset-del">✕</button>`;
+        div.addEventListener('click', e => { if (!e.target.classList.contains('preset-del')) loadPreset(p); });
+        div.querySelector('.preset-del').addEventListener('click', e => { e.stopPropagation(); const arr = getPresets(); arr.splice(idx, 1); savePresets(arr); renderPresetList(); });
+        list.appendChild(div);
+      });
+      if (!getPresets().length) list.innerHTML = '<div style="font-size:12px;opacity:.4;padding:8px">No presets yet.</div>';
+    }
+    function loadPreset(p) { state.hue = p.hue; state.expansion = p.expansion; setShape(p.shape); closeModal(); showToast('🔖 ' + p.name); }
+    function openModal(id) { document.getElementById('overlay').style.display = 'block'; document.getElementById(id).style.display = 'flex'; }
+    function closeModal() { document.getElementById('overlay').style.display = 'none';['text-input-wrap', 'preset-panel'].forEach(id => document.getElementById(id).style.display = 'none'); }
+
+    // ═══════════════════════════════════════════
+    //  TOAST — only shows when UI is visible
+    // ═══════════════════════════════════════════
+    let toastTimer = null;
+    function showToast(msg) {
+      if (!uiVisible) return;  // ← silently drop if UI is hidden
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+    }
+
+    // ═══════════════════════════════════════════
+    //  TOGGLE UI — also clears any active toast
+    // ═══════════════════════════════════════════
+    function toggleUI() {
+      uiVisible = !uiVisible;
+      document.body.classList.toggle('ui-hidden', !uiVisible);
+      if (!uiVisible) {
+        // Immediately dismiss any active toast when hiding UI
+        const el = document.getElementById('toast');
+        el.classList.remove('show');
+        clearTimeout(toastTimer);
+      } else {
+        showToast('👁 UI Visible');
+      }
+    }
+
+    // ═══════════════════════════════════════════
+    //  SHAPE
+    // ═══════════════════════════════════════════
+    function setShape(name) {
+      state.shape = name; shapeIdx = SHAPES.indexOf(name); if (shapeIdx < 0) shapeIdx = 0;
+      if (name === 'text') textPoints = buildTextPoints(state.textString);
+      rebuildTargets();
+      document.querySelectorAll('.tpl-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === name));
+    }
+
+    // ═══════════════════════════════════════════
+    //  EVENT LISTENERS
+    // ═══════════════════════════════════════════
+    document.querySelectorAll('.tpl-btn').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.shape === 'text') openModal('text-input-wrap'); else setShape(btn.dataset.shape); }));
+    document.querySelectorAll('.clr-btn').forEach(btn => btn.addEventListener('click', () => { document.querySelectorAll('.clr-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.hue = parseFloat(btn.dataset.h); rebuildTargets(); }));
+    document.getElementById('color-picker').addEventListener('input', e => { const h = e.target.value, r = parseInt(h.slice(1, 3), 16) / 255, g = parseInt(h.slice(3, 5), 16) / 255, b = parseInt(h.slice(5, 7), 16) / 255; const max = Math.max(r, g, b), min = Math.min(r, g, b); let hh = 0; if (max !== min) { if (max === r) hh = ((g - b) / (max - min)) / 6; else if (max === g) hh = ((b - r) / (max - min) + 2) / 6; else hh = ((r - g) / (max - min) + 4) / 6; if (hh < 0) hh += 1; } state.hue = hh; document.querySelectorAll('.clr-btn').forEach(b => b.classList.remove('active')); rebuildTargets(); });
+    document.getElementById('speed-slider').addEventListener('input', e => { LERP_SPEED = parseInt(e.target.value) / 100; });
+    document.getElementById('count-slider').addEventListener('input', e => { resizeBuffers(parseInt(e.target.value)); });
+    document.getElementById('size-slider').addEventListener('input', e => { mat.size = parseInt(e.target.value) / 10; });
+    document.getElementById('fullscreen-btn').addEventListener('click', () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); else document.exitFullscreen(); });
+    document.getElementById('screenshot-btn').addEventListener('click', takeScreenshot);
+    document.getElementById('audio-btn').addEventListener('click', () => { if (!state.audioActive) initAudio(); else { state.audioActive = false; document.getElementById('audio-btn').classList.remove('active'); showToast('🔇 Audio OFF'); } });
+    document.getElementById('presets-btn').addEventListener('click', () => { renderPresetList(); openModal('preset-panel'); });
+    document.getElementById('gyro-btn').addEventListener('click', () => { if (!state.gyroActive) initGyro(); else { state.gyroActive = false; document.getElementById('gyro-btn').classList.remove('active'); showToast('📱 Gyro OFF'); } });
+    document.getElementById('text-apply-btn').addEventListener('click', () => { state.textString = document.getElementById('text-shape-input').value || 'Hi'; textPoints = buildTextPoints(state.textString); setShape('text'); closeModal(); });
+    document.getElementById('text-cancel-btn').addEventListener('click', closeModal);
+    document.getElementById('overlay').addEventListener('click', closeModal);
+    document.getElementById('preset-save-btn').addEventListener('click', () => { const name = document.getElementById('preset-name-input').value.trim(); if (!name) { showToast('⚠ Enter a name'); return; } const arr = getPresets(); arr.push({ name, shape: state.shape, hue: state.hue, expansion: state.expansion }); savePresets(arr); renderPresetList(); document.getElementById('preset-name-input').value = ''; showToast('✅ ' + name); });
+    document.getElementById('preset-close-btn').addEventListener('click', closeModal);
+
+    let lastTap = 0;
+    renderer.domElement.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTap < 320) { toggleUI(); e.preventDefault(); } lastTap = now; }, { passive: false });
+    renderer.domElement.addEventListener('dblclick', toggleUI);
+
+    window.addEventListener('resize', () => { camera3d.aspect = innerWidth / innerHeight; camera3d.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); updateComposerSize(); });
+
+    setTimeout(() => {
+      const el = document.createElement('div'), sty = document.createElement('style');
+      sty.textContent = '@keyframes fh{0%{opacity:0;transform:translateX(-50%) translateY(6px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}75%{opacity:1}100%{opacity:0}}';
+      document.head.appendChild(sty);
+      el.style.cssText = 'position:fixed;bottom:160px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:6px 16px;font-size:12px;color:rgba(255,255,255,.6);pointer-events:none;animation:fh 3.5s ease forwards;white-space:nowrap';
+      el.textContent = 'Double-tap or double-click to toggle UI visibility';
+      document.body.appendChild(el); setTimeout(() => el.remove(), 4000);
+    }, 3500);
+  </script>
+</body>
+
+</html>
